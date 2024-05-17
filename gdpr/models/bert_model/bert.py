@@ -95,7 +95,7 @@ class TransformerEncoderBlock(nn.Module):
 
 class BERT(nn.Module):
     def __init__(self,
-                 img_size:int=224, 
+                 vocab_size:int=224, 
                  in_channels:int=3,
                  patch_size:int=16, 
                  num_transformer_layers:int=12, 
@@ -105,7 +105,7 @@ class BERT(nn.Module):
                  attn_dropout:float=0,
                  mlp_dropout:float=0.1, 
                  embedding_dropout:float=0.1,
-                 num_classes:int=1000): 
+                 num_classes:int=9):  #there are 9 tags?
         super().__init__()
 
 
@@ -115,9 +115,9 @@ class BERT(nn.Module):
 
         self.embedding_dropout = nn.Dropout(p=embedding_dropout)
 
-        self.embedding = Embedding(in_channels=in_channels,
-                                              patch_size=patch_size,
-                                              embedding_dim=embedding_dim)
+        self.embedding = Embedding(vocab_size=vocab_size,                                            
+                                              embedding_dim=embedding_dim,
+                                              max_length=patch_size)
         
         self.transformer_encoder = nn.Sequential(*[TransformerEncoderBlock(embedding_dim=embedding_dim,
                                                                             num_heads=num_heads,
@@ -133,7 +133,7 @@ class BERT(nn.Module):
     def forward(self, x):
         batch_size = x.shape[0]
 
-        x = self.patch_embedding(x)
+        x = self.embedding(x)
 
         x = self.embedding_dropout(x)
         x = self.transformer_encoder(x)
