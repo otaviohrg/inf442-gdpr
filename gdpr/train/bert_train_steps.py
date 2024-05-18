@@ -3,58 +3,65 @@ import torch
 from tqdm.auto import tqdm
 from typing import Dict, List, Tuple
 
-def train_step(model: torch.nn.Module, 
-               dataloader: torch.utils.data.DataLoader, 
-               loss_fn: torch.nn.Module, 
+def train_step(model: torch.nn.Module,
+               dataloader: torch.utils.data.DataLoader,
+               loss_fn: torch.nn.Module,
                optimizer: torch.optim.Optimizer,
                device: torch.device) -> Tuple[float, float]:
     model.train()
 
     train_loss, train_acc = 0, 0
-    for batch, (X, y) in enumerate(dataloader):
-        X, y = X.to(device), y.to(device)
-        y_pred = model(X)
+    for batch_num, batch, in enumerate(dataloader):
 
-        loss = loss_fn(y_pred, y)
-        train_loss += loss.item() 
+        inputs = {"x": batch[0],
+                  "mask": batch[1].bool()}
+
+        y_pred = model(**inputs)[0].unsqueeze(dim=0)
+        preds = y_pred[0, (batch[3] != pad_token_label_id)[0], :]
+        y = (batch[3][0][(batch[3] != pad_token_label_id)[0]])
+
+        loss = loss_fn(preds, y)
+        train_loss += loss.item()
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-        y_pred_class = torch.argmax(torch.softmax(y_pred, dim=1), dim=1)
+        y_pred_class = torch.argmax(torch.softmax(preds, dim=1), dim=1)
         train_acc += (y_pred_class == y).sum().item()/len(y_pred)
 
     train_loss = train_loss / len(dataloader)
     train_acc = train_acc / len(dataloader)
     return train_loss, train_acc
 
-def test_step(model: torch.nn.Module, 
-              dataloader: torch.utils.data.DataLoader, 
+def test_step(model: torch.nn.Module,
+              dataloader: torch.utils.data.DataLoader,
               loss_fn: torch.nn.Module,
               device: torch.device) -> Tuple[float, float]:
-    model.eval() 
+    model.eval()
 
     test_loss, test_acc = 0, 0
 
     with torch.inference_mode():
-        for batch, (X, y) in enumerate(dataloader):
-            X, y = X.to(device), y.to(device)
+        for batch_num, batch in enumerate(dataloader):
 
-            test_pred_logits = model(X)
+            inputs = {"x": batch[0],
+                      "mask": batch[1].bool()}
 
-            loss = loss_fn(test_pred_logits, y)
-            test_loss += loss.item()
+            y_pred = model(**inputs)[0].unsqueeze(dim=0)
+            preds = y_pred[0, (batch[3] != pad_token_label_id)[0], :]
+            y = (batch[3][0][(batch[3] != pad_token_label_id)[0]])
 
-            test_pred_labels = test_pred_logits.argmax(dim=1)
+
+            test_pred_labels = preds.argmax(dim=1)
             test_acc += ((test_pred_labels == y).sum().item()/len(test_pred_labels))
 
     test_loss = test_loss / len(dataloader)
     test_acc = test_acc / len(dataloader)
     return test_loss, test_acc
 
-def train(model: torch.nn.Module, 
-          train_dataloader: torch.utils.data.DataLoader, 
-          test_dataloader: torch.utils.data.DataLoader, 
+def train(model: torch.nn.Module,
+          train_dataloader: torch.utils.data.DataLoader,
+          test_dataloader: torch.utils.data.DataLoader,
           optimizer: torch.optim.Optimizer,
           loss_fn: torch.nn.Module,
           epochs: int,
@@ -65,7 +72,7 @@ def train(model: torch.nn.Module,
                "test_loss": [],
                "test_acc": []
     }
-    
+
     model.to(device)
 
     for epoch in tqdm(range(epochs)):
