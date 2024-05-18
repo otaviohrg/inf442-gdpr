@@ -3,8 +3,7 @@ import torch
 from tqdm.auto import tqdm
 from typing import Dict, List, Tuple
 
-
-pad_token_label_id = torch.nn.CrossEntropyLoss.ignore_index
+pad_token_label_id = torch.nn.CrossEntropyLoss().ignore_index
 
 def train_step(model: torch.nn.Module,
                dataloader: torch.utils.data.DataLoader,
@@ -30,7 +29,10 @@ def train_step(model: torch.nn.Module,
         optimizer.step()
 
         y_pred_class = torch.argmax(torch.softmax(preds, dim=1), dim=1)
-        train_acc += (y_pred_class == y).sum().item()/len(y_pred)
+        train_acc += (y_pred_class == y).sum().item()/len(y_pred_class.view(-1))
+        if batch_num % 5 == 0:
+            print(train_acc/(batch_num+1), "batch: ", batch_num)
+            # print((y_pred_class == y).sum().item()/len(y_pred_class.view(-1)))
 
     train_loss = train_loss / len(dataloader)
     train_acc = train_acc / len(dataloader)
@@ -56,7 +58,8 @@ def test_step(model: torch.nn.Module,
 
 
             test_pred_labels = preds.argmax(dim=1)
-            test_acc += ((test_pred_labels == y).sum().item()/len(test_pred_labels))
+            test_acc += ((test_pred_labels == y).sum().item()/len(test_pred_labels.view(-1)))
+            print(test_acc)
 
     test_loss = test_loss / len(dataloader)
     test_acc = test_acc / len(dataloader)
