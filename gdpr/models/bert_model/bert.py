@@ -35,12 +35,14 @@ class MultiheadSelfAttentionBlock(nn.Module):
                                                     dropout=attn_dropout,
                                                     batch_first=True)
 
-    def forward(self, x):
+    def forward(self, x, mask):
         x = self.layer_norm(x)
         attn_output, _ = self.multihead_attn(query=x,
                                              key=x,
                                              value=x,
+                                             key_padding_mask=mask,
                                              need_weights=False)
+        print(self.multihead_attn)
         return attn_output
     
 
@@ -87,8 +89,8 @@ class TransformerEncoderBlock(nn.Module):
                                    mlp_size=mlp_size,
                                    dropout=mlp_dropout)
 
-    def forward(self, x):
-        x =  self.msa_block(x) + x
+    def forward(self, x, mask):
+        x =  self.msa_block(x, mask) + x
         x = self.mlp_block(x) + x
         return x
     
@@ -119,10 +121,15 @@ class BERT(nn.Module):
                                               embedding_dim=embedding_dim,
                                               max_length=patch_size)
         
-        self.transformer_encoder = nn.Sequential(*[TransformerEncoderBlock(embedding_dim=embedding_dim,
+        # self.transformer_encoder = nn.Sequential(*[TransformerEncoderBlock(embedding_dim=embedding_dim,
+        #                                                                     num_heads=num_heads,
+        #                                                                     mlp_size=mlp_size,
+        #                                                                     mlp_dropout=mlp_dropout) for _ in range(num_transformer_layers)])
+
+        self.transformer_encoder = TransformerEncoderBlock(embedding_dim=embedding_dim,
                                                                             num_heads=num_heads,
                                                                             mlp_size=mlp_size,
-                                                                            mlp_dropout=mlp_dropout) for _ in range(num_transformer_layers)])
+                                                                            mlp_dropout=mlp_dropout)
 
         self.classifier = nn.Sequential(
             nn.LayerNorm(normalized_shape=embedding_dim),
@@ -130,13 +137,14 @@ class BERT(nn.Module):
                       out_features=num_classes)
         )
 
-    def forward(self, x):
+    def forward(self, x, mask):
         batch_size = x.shape[0]
 
         x = self.embedding(x)
 
         x = self.embedding_dropout(x)
-        x = self.transformer_encoder(x)
+        print(x.shape)
+        x = self.transformer_encoder(x, mask)
         x = self.classifier(x)
 
         return x
