@@ -77,7 +77,7 @@ class LSTMCell(nn.Module):
 
 
 class LSTM(nn.Module):
-    def __init__(self, vocab_size = 100, seq_size = 128, input_shape=128, hidden_shape=128, num_class=9, cell_number=3):
+    def __init__(self, vocab_size = 100, seq_size = 128, input_shape=768, hidden_shape=128, num_class=9, cell_number=3):
         super().__init__()
         self.embedding = Embeddings(vocab_size=vocab_size,
                                               embedding_dim=input_shape,
@@ -90,16 +90,19 @@ class LSTM(nn.Module):
 
     def forward(self, input):
         outputs = []
+
+        embeds = self.embedding(input)
+
         h_t = torch.zeros(input.size(0), self.hidden_shape)
         c_t = torch.zeros(input.size(0), self.hidden_shape)
         h_t2 = torch.zeros(input.size(0), self.hidden_shape)
         c_t2 = torch.zeros(input.size(0), self.hidden_shape)
 
 
-        for i in range(input.size(1)):
+        for i in range(embeds.size(1)):
 
             # if self.LSTM:
-            h_t, c_t = self.rnn1(input[:, i, :], (h_t, c_t))
+            h_t, c_t = self.rnn1(embeds[:, i, :], (h_t, c_t))
             h_t2, c_t2 = self.rnn2(h_t, (h_t2, c_t2))
             # else:
             #     h_t = self.rnn1(input_t, h_t)
