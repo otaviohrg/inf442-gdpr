@@ -1,7 +1,23 @@
 import torch
 import torch.nn as nn
 
+class Embeddings(nn.Module):
+    def __init__(self, vocab_size, embedding_dim, max_length):
+        super().__init__()
+        self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        self.position_embedding = nn.Embedding(max_length, embedding_dim)
+        self.max_length = max_length
 
+    def forward(self, input_ids):
+
+        token_embeddings = self.embedding(input_ids)
+
+        position_ids = torch.arange(self.max_length).unsqueeze(0).repeat(input_ids.size(0), 1).to(input_ids.device)
+
+        position_embeddings = self.position_embedding(position_ids)
+        embeddings = token_embeddings + position_embeddings
+
+        return embeddings
 class LSTMCell(nn.Module):
 
     def __init__(self, input_lenght, hidden_lenght):
@@ -27,7 +43,7 @@ class LSTMCell(nn.Module):
         # Output Gate
         self.output_w4 = nn.Linear(self.input_lenght, self.hidden_lenght, bias=True)
         self.output_r4 = nn.Linear(self.hidden_lenght, self.hidden_lenght, bias=False)
-        self.output_sigmoid = Sigmoid()
+        self.output_sigmoid = nn.Sigmoid()
         self.final_activation = nn.Tanh()
 
     def forget_gate(self, x, h):
@@ -61,26 +77,34 @@ class LSTMCell(nn.Module):
 
 
 class LSTM(nn.Module):
-    def __init__(self):
-        self.rnn1 = LSTMCell(1, 51)
-        self.rnn2 = LSTMCell(51, 51)
-        self.linear = nn.Linear(51, 1)
+    def __init__(self, vocab_size = 100, seq_size = 128, input_shape=128, hidden_shape=128, num_class=9, cell_number=3):
+        super().__init__()
+        self.embedding = Embeddings(vocab_size=vocab_size,
+                                              embedding_dim=input_shape,
+                                              max_length=seq_size)
+        
+        self.rnn1 = LSTMCell(input_shape, hidden_shape)
+        self.rnn2 = LSTMCell(hidden_shape, hidden_shape)
+        self.linear = nn.Linear(hidden_shape, num_class)
+        self.hidden_shape = hidden_shape
 
     def forward(self, input):
         outputs = []
-        h_t = torch.zeros(input.size(0), 51, dtype=torch.double)
-        c_t = torch.zeros(input.size(0), 51, dtype=torch.double)
-        h_t2 = torch.zeros(input.size(0), 51, dtype=torch.double)
-        c_t2 = torch.zeros(input.size(0), 51, dtype=torch.double)
+        h_t = torch.zeros(input.size(0), self.hidden_shape)
+        c_t = torch.zeros(input.size(0), self.hidden_shape)
+        h_t2 = torch.zeros(input.size(0), self.hidden_shape)
+        c_t2 = torch.zeros(input.size(0), self.hidden_shape)
 
-        for i, input_t in enumerate(input.chunk(input.size(1), dim=1)):
 
-            if self.LSTM:
-                h_t, c_t = self.rnn1(input_t, (h_t, c_t))
-                h_t2, c_t2 = self.rnn2(h_t, (h_t2, c_t2))
-            else:
-                h_t = self.rnn1(input_t, h_t)
-                h_t2 = self.rnn2(h_t, h_t2)
+        for i in range(input.size(1)):
+
+            # if self.LSTM:
+            h_t, c_t = self.rnn1(input[:, i, :], (h_t, c_t))
+            h_t2, c_t2 = self.rnn2(h_t, (h_t2, c_t2))
+            # else:
+            #     h_t = self.rnn1(input_t, h_t)
+            #     h_t2 = self.rnn2(h_t, h_t2)
+
 
             output = self.linear(h_t2)
             outputs += [output]
