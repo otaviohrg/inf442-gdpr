@@ -77,11 +77,14 @@ class LSTMCell(nn.Module):
 
 
 class LSTM(nn.Module):
-    def __init__(self, vocab_size = 100, seq_size = 128, input_shape=768, hidden_shape=128, num_class=9, cell_number=3):
+    def __init__(self, vocab_size = 100, seq_size = 128, input_shape=768, hidden_shape=128, num_class=9, embeddings= None, cell_number=3):
         super().__init__()
-        self.embedding = Embeddings(vocab_size=vocab_size,
+        if embeddings is None:
+            self.embedding = Embeddings(vocab_size=vocab_size,
                                               embedding_dim=input_shape,
                                               max_length=seq_size)
+        else: 
+            self.embedding = embeddings
         
         self.rnn1 = LSTMCell(input_shape, hidden_shape)
         self.rnn2 = LSTMCell(hidden_shape, hidden_shape)

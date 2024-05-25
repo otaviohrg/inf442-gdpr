@@ -13,16 +13,25 @@ def train_step(model: torch.nn.Module,
     model.train()
 
     train_loss, train_acc = 0, 0
+    nan_counter = 0
     for batch_num, batch, in enumerate(dataloader):
 
         inputs = {"x": batch[0],
                   "mask": batch[1].bool()}
 
         y_pred = model(**inputs)[0].unsqueeze(dim=0)
+
+
+
         preds = y_pred[0, (batch[3] != pad_token_label_id)[0], :]
         y = (batch[3][0][(batch[3] != pad_token_label_id)[0]])
 
         loss = loss_fn(preds, y)
+
+        if(torch.isnan(loss)):
+            # nan_counter += 1
+            continue
+
         train_loss += loss.item()
         optimizer.zero_grad()
         loss.backward()
@@ -34,8 +43,8 @@ def train_step(model: torch.nn.Module,
             print(train_acc/(batch_num+1), "batch: ", batch_num)
             # print((y_pred_class == y).sum().item()/len(y_pred_class.view(-1)))
 
-    train_loss = train_loss / len(dataloader)
-    train_acc = train_acc / len(dataloader)
+    train_loss = train_loss / (len(dataloader) - nan_counter)
+    train_acc = train_acc / (len(dataloader) - nan_counter)
     return train_loss, train_acc
 
 def test_step(model: torch.nn.Module,
@@ -56,6 +65,12 @@ def test_step(model: torch.nn.Module,
             preds = y_pred[0, (batch[3] != pad_token_label_id)[0], :]
             y = (batch[3][0][(batch[3] != pad_token_label_id)[0]])
 
+            loss = loss_fn(preds, y)
+
+            if(torch.isnan(loss)):
+                continue
+
+            test_loss += loss.item()
 
             test_pred_labels = preds.argmax(dim=1)
             test_acc += ((test_pred_labels == y).sum().item()/len(test_pred_labels.view(-1)))
@@ -76,8 +91,7 @@ def train(model: torch.nn.Module,
     results = {"train_loss": [],
                "train_acc": [],
                "test_loss": [],
-               "test_acc": []
-    }
+               "test_acc": []}
 
     model.to(device)
 
